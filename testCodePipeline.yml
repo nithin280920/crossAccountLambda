@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation Template for creating a CodePipeline
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: Name of the CodePipeline project
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository URL
+  GitHubBranch:
+    Type: String
+    Description: GitHub branch to trigger the pipeline
+  GitHubOAuthToken:
+    Type: String
+    Description: GitHub OAuth token for access
+
+Resources:
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Ref ProjectName
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Provider: GitHub
+                Version: 1
+              Configuration:
+                Owner: !Sub ${GitHubRepo}
+                Repo: !Sub ${GitHubRepo}
+                Branch: !Sub ${GitHubBranch}
+                OAuthToken: !Ref GitHubOAuthToken
+              OutputArtifacts:
+                - Name: SourceOutput
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: YourCodeBuildProjectName
+              InputArtifacts:
+                - Name: SourceOutput
+              RunOrder: 2
+
+Outputs:
+  CodePipelineId:
+    Description: CodePipeline ID
+    Value: !Ref Pipeline
+  CodePipelineName:
+    Description: CodePipeline Name
+    Value: !Ref ProjectName
